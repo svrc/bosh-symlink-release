@@ -19,7 +19,7 @@ export BOSH_CLIENT=ops_manager BOSH_CLIENT_SECRET=fakesecret BOSH_CA_CERT=/var/t
 ```
 git clone https://github.com/svrc/oms-agent-lite-boshrelease && cd oms-agent-lite-boshrelease
 bosh create-release --force
-bosh upload-release ./dev_releases/oms-agent-lite-boshrelease/oms-agent-lite-boshrelease-0+dev.1.yml
+bosh upload-release ./dev_releases/oms-agent-lite/oms-agent-lite-0+dev.1.yml
 
 ```
 4. Configure the addon from this repo
