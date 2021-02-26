@@ -24,8 +24,7 @@ bosh upload-release ./dev_releases/oms-agent-lite/oms-agent-lite-0+dev.1.yml
 ```
 4. Configure the addon from this repo
 ```
-cd ..
 bosh -n update-config --name=oms-agent-lite --type=runtime ./addon.yml
 ```
-5. Update your BOSH VMs with a redeploy, e.g. TAS for VMs via Ops Manager, TKGI clusters via the TKGI CLI "upgrade/update-cluster" and/or Ops Manager "Apply Pending Changes" button with the TKGI upgrade errand enabled.  This addon will automatically be installed on all nodes with the default manifest `addon.yml`
+5. Update your BOSH VMs with a redeploy, e.g. bosh deploy CLI ; TAS for VMs via Ops Manager ; TKGI clusters via the TKGI CLI "upgrade/update-cluster" and/or Ops Manager "Apply Pending Changes" button with the TKGI upgrade errand enabled.  This addon will automatically be installed on all nodes with the default manifest `addon.yml`
 
