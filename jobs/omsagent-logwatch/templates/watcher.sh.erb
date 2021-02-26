@@ -93,10 +93,6 @@ wait_until_file_exists()
     return 1
 }
 
-# Redirect logs destinations
-mkdir -p /var/vcap/sys/log/omi
-mkdir -p /var/vcap/sys/log/scx
-mkdir -p /var/vcap/sys/log/omsconfig
 rsyslog_port=25224
 
 # Loop forever trying to symlink log directories if they arne't symlinked
@@ -115,13 +111,13 @@ while true; do
 
       # If we've already moved the logs , everything is great
       if   [ -L "/var/opt/omi/log" ] && \
-           [ -L "/var/opt/microsoft/scx/log" ] && \
+           [ -L "/var/opt/microsoft/scx/log" ] && \           
            [ -L "/var/opt/microsoft/omsconfig" ]; then
         echo "Symlinks already exist, skipping"
         continue 
       fi
       # Used as a timeout
-      echo "Symlinks missing, stopping omsagent and moving directories"
+      echo "Symlinks missing, creating them and moving logs"
       DPKG_RETRIES=0
       # Checks dpkg/apt related lock files to see if they're already locked and in use
       # Also checks if DPKG_RETRIES hit the timeout value
@@ -133,32 +129,18 @@ while true; do
         sleep 1
       done
 
-      service "$sev" stop
-      echo -n "Terminating existing oms agent.. "
-      current_pids=$(sudo netstat -anop | grep ${rsyslog_port} | cut -c 81- | cut -d'/' -f 1 | cut -d'-' -f 1)
-      for current_pid in $current_pids; do
-        echo -n "$current_pid "
-        sudo kill -sigkill $current_pid
-        echo $current_pid > $PID_FILE_TEMP
-        wait_until_process_stops $PID_FILE_TEMP 5
-      done
-      echo ""
-      # Ensure nothing is running as the omsagent user
-      pkill -u omsagent > /dev/null 2>&1
 
-      which scxadmin > /dev/null 2>&1
-      if [ ! -z $? ]; then
-        echo "Stopping scx instances"
-        scxadmin -stop all
-        service omid stop
-      fi
-
-      # move the logs to /var/vcap
+      
+      # Redirect logs destinations
+      mkdir -p /var/vcap/sys/log/omi
+      mkdir -p /var/vcap/sys/log/scx
+      mkdir -p /var/vcap/sys/log/omsconfig
+      mkdir -p /var/vcap/sys/log/azure
       retry_create_symlinks /var/vcap/sys/log/omi /var/opt/omi/log
       retry_create_symlinks /var/vcap/sys/log/scx /var/opt/microsoft/scx/log
       retry_create_symlinks /var/vcap/sys/log/omsconfig /var/opt/microsoft/omsconfig
+
       chown -h omsagent:omsagent /var/vcap/sys/log/omsconfig
-      
       # Restart omsagent
       echo "Restarting omsagent"
       service omid start
