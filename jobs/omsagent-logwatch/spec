@@ -1,0 +1,6 @@
+---
+name: omsagent-logwatch
+
+templates:
+  ctl.erb: bin/ctl
+  watcher.sh.erb: bin/watcher.sh

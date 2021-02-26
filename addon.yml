@@ -1,0 +1,13 @@
+---
+addons:
+- include:
+    stemcell:
+    - os: ubuntu-xenial
+    - os: ubuntu-bionic
+  jobs:
+  - name: omsagent-logwatch
+    release: oms-agent-lite
+  name: oms-agent-lite
+releases:
+- name: oms-agent-lite
+  version: 0+dev.1

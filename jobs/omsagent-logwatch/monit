@@ -1,0 +1,5 @@
+check process omsagent-logwatch
+  with pidfile /var/vcap/sys/run/omsagent-logwatch/omsagent-logwatch.pid
+  start program "/var/vcap/jobs/omsagent-logwatch/bin/ctl start"
+  stop program "/var/vcap/jobs/omsagent-logwatch/bin/ctl stop"
+  group vcap

@@ -1,0 +1,165 @@
+#!/bin/bash
+
+retry_create_symlinks()
+{
+    if [ -z "$1" ] || [ -z "$2" ]; then
+        echo "Function \"retry_create_symlinks\" called with invalid parameter"
+        exit 1
+    fi
+
+    DIR=$1
+    LINK=$2
+
+    if [ ! -L $LINK ]; then
+        RETRIES=2
+        while [ $RETRIES -gt 0 ]; do
+            # If $LINK exists and is a directory, backup the logs and then recreate it as a symlink
+            if [ -d $LINK ]; then
+                mv -f $LINK/* $DIR/
+                rm -rf $LINK
+            fi
+            ln -s $DIR $LINK
+            if [ -L $LINK ]; then
+                break
+            fi
+            RETRIES=$((RETRIES - 1))
+        done
+        if [ $RETRIES -eq 0 ]; then
+            echo "Failed to create symlink $LINK to $DIR"
+        fi
+    fi
+}
+
+
+is_process_running()
+{
+    PIDFILE=$1
+    # Returns 1 if 'omsagent' is running, 0 otherwise
+    [ -f $PIDFILE ] || return 0
+    ps -p `cat $PIDFILE` | grep -q "omsagent\|ruby"
+    STATUS=$?
+
+    # Kill PID file if we're not running any longer
+    if [ $STATUS -ne 0 ]; then
+        rm -f $PIDFILE
+        return 0
+    else
+        return 1
+    fi
+}
+
+wait_until_process_stops()
+{
+    # Required parameter: Number of seconds to wait for agent to stop
+    if [ -z "$1" ] || [ -z "$2" ] || [ "$2" -le 0 ]; then
+        echo "Function \"wait_until_process_stops\" called with invalid parameter"
+        exit 1
+    fi
+
+    PIDFILE=$1
+    TIME=$2
+
+    COUNTER=$(( $TIME * 2 )) # Since we sleep 0.5 seconds, compute number of seconds
+    while [ $COUNTER -gt 0 ]; do
+        is_process_running $PIDFILE && return $?
+        COUNTER=$(( $COUNTER - 1 ))
+        sleep 0.5
+    done
+
+    # One final try for accurate return status (just return status from the call)
+    is_process_running $PIDFILE
+}
+
+wait_until_file_exists()
+{
+    if [ -z "$1" ] || [ -z "$2" ] || [ "$2" -le 0 ]; then
+        echo "Function \"wait_until_file_exists\" called with invalid parameter"
+        exit 1
+    fi
+
+    FILE=$1
+    TIME=$2
+
+    COUNTER=$(( $TIME * 2 )) # Since we sleep 0.5 seconds, compute number of seconds
+    while [ $COUNTER -gt 0 ]; do
+        [ -f $FILE ] && return 0
+        COUNTER=$(( $COUNTER - 1 ))
+        sleep 0.5
+    done
+
+    if [ -f $FILE ]; then
+        return 0
+    fi
+    return 1
+}
+
+# Redirect logs destinations
+mkdir -p /var/vcap/sys/log/omi
+mkdir -p /var/vcap/sys/log/scx
+mkdir -p /var/vcap/sys/log/omsconfig
+chown -h omsagent:omsagent /var/vcap/sys/log/omsconfig
+usermod -aG vcap omsagent
+usermod -aG vcap nxautomation
+
+# Loop forever trying to symlink log directories if they arne't symlinked
+while true; do
+    # If we've already moved the logs , everything is great
+    if   [ -L "/var/opt/omi/log" ] && 
+         [ -L "/var/opt/microsoft/scx/log" ] &&
+         [ -L "/var/opt/microsoft/omsconfig" ]; then
+      sleep 15
+      continue 
+    fi
+    dpkg -s omsagent omsconfig > /dev/null 2>&1
+    OMS_FOUND="${?}"
+    reg="omsagent-[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}"
+    sev=$(service --status-all | grep -P $reg -o)
+    ins=$(top -b -n 1 | grep omsagent)
+
+    if [ ! -z "$sev" ] | [ ! -z "$ins" ] | [ "${OMS_FOUND}" -eq 0 ]; then
+       echo "Existing oms agent found $sev"
+
+      # Used as a timeout
+      DPKG_RETRIES=0
+
+      # Checks dpkg/apt related lock files to see if they're already locked and in use
+      # Also checks if DPKG_RETRIES hit the timeout value
+      while fuser /var/{lib/{dpkg,apt/lists},cache/apt/archives}/lock >/dev/null 2>&1 \
+       && [ "${DPKG_RETRIES}" -lt 300 ]; do
+        DPKG_RETRIES=$(( DPKG_RETRIES + 1 ))
+        sleep 1
+      done
+      service "$sev" stop
+      echo -n "Terminating existing oms agent.. "
+      current_pids=$(sudo netstat -anop | grep ${rsyslog_port} | cut -c 81- | cut -d'/' -f 1 | cut -d'-' -f 1)
+      for current_pid in $current_pids; do
+        echo -n "$current_pid "
+        sudo kill -sigkill $current_pid
+        echo $current_pid > $PID_FILE_TEMP
+        wait_until_process_stops $PID_FILE_TEMP 5
+      done
+      echo ""
+      # Ensure nothing is running as the omsagent user
+      pkill -u omsagent > /dev/null 2>&1
+
+      which scxadmin > /dev/null 2>&1
+      if [ ! -z $? ]; then
+        echo "Stopping scx instances"
+        scxadmin -stop all
+        service omid stop
+      fi
+
+      # move the logs to /var/vcap
+      retry_create_symlinks /var/vcap/sys/log/omi /var/opt/omi/log
+      retry_create_symlinks /var/vcap/sys/log/scx /var/opt/microsoft/scx/log
+      retry_create_symlinks /var/vcap/sys/log/omsconfig /var/opt/microsoft/omsconfig
+
+      # Restart omsagent
+      service omid start
+      scxadmin -start all
+      service "$sev" start
+
+      sleep 60
+    fi
+done
+
