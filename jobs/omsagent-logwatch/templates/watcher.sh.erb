@@ -10,7 +10,7 @@ retry_create_symlinks()
     DIR=$1
     LINK=$2
 
-    if [ ! -L $LINK ]; then
+    if ! [ -L $LINK ]; then
         RETRIES=2
         while [ $RETRIES -gt 0 ]; do
             # If $LINK exists and is a directory, backup the logs and then recreate it as a symlink
@@ -100,16 +100,10 @@ mkdir -p /var/vcap/sys/log/omsconfig
 chown -h omsagent:omsagent /var/vcap/sys/log/omsconfig
 usermod -aG vcap omsagent
 usermod -aG vcap nxautomation
+rsyslog_port=25224
 
 # Loop forever trying to symlink log directories if they arne't symlinked
 while true; do
-    # If we've already moved the logs , everything is great
-    if   [ -L "/var/opt/omi/log" ] && 
-         [ -L "/var/opt/microsoft/scx/log" ] &&
-         [ -L "/var/opt/microsoft/omsconfig" ]; then
-      sleep 15
-      continue 
-    fi
     dpkg -s omsagent omsconfig > /dev/null 2>&1
     OMS_FOUND="${?}"
     reg="omsagent-[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}"
@@ -117,18 +111,29 @@ while true; do
     ins=$(top -b -n 1 | grep omsagent)
 
     if [ ! -z "$sev" ] | [ ! -z "$ins" ] | [ "${OMS_FOUND}" -eq 0 ]; then
-       echo "Existing oms agent found $sev"
+      echo "Existing oms agent found $sev"
 
+      # If we've already moved the logs , everything is great
+      if   [ -L "/var/opt/omi/log" ] && \
+           [ -L "/var/opt/microsoft/scx/log" ] && \
+           [ -L "/var/opt/microsoft/omsconfig" ]; then
+        echo "Symlinks already exist, skipping"
+        sleep 15
+        continue 
+      fi
       # Used as a timeout
+      echo "Symlinks missing, stopping omsagent and moving directories"
       DPKG_RETRIES=0
-
       # Checks dpkg/apt related lock files to see if they're already locked and in use
       # Also checks if DPKG_RETRIES hit the timeout value
+      # This is to ensure we're not stopping omsagent during a package install
       while fuser /var/{lib/{dpkg,apt/lists},cache/apt/archives}/lock >/dev/null 2>&1 \
        && [ "${DPKG_RETRIES}" -lt 300 ]; do
+        echo "Sleeping until dpkg is done"
         DPKG_RETRIES=$(( DPKG_RETRIES + 1 ))
         sleep 1
       done
+
       service "$sev" stop
       echo -n "Terminating existing oms agent.. "
       current_pids=$(sudo netstat -anop | grep ${rsyslog_port} | cut -c 81- | cut -d'/' -f 1 | cut -d'-' -f 1)
@@ -155,6 +160,7 @@ while true; do
       retry_create_symlinks /var/vcap/sys/log/omsconfig /var/opt/microsoft/omsconfig
 
       # Restart omsagent
+      echo "Restarting omsagent"
       service omid start
       scxadmin -start all
       service "$sev" start
