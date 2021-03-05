@@ -1,0 +1,58 @@
+#!/bin/bash
+
+
+retry_create_symlinks()
+{
+    if [ -z "$1" ] || [ -z "$2" ]; then
+        echo "Function \"retry_create_symlinks\" called with invalid parameter"
+        exit 1
+    fi
+
+    DIR=$1
+    LINK=$2
+
+    if ! [ -L $LINK ]; then
+        RETRIES=2
+        while [ $RETRIES -gt 0 ]; do
+            # If $LINK exists and is a directory, backup the logs and then recreate it as a symlink
+            if [ -d $LINK ]; then
+                mv -f $LINK/* $DIR/
+                rm -rf $LINK
+            fi
+            ln -s $DIR $LINK
+            if [ -L $LINK ]; then
+                break
+            fi
+            RETRIES=$((RETRIES - 1))
+        done
+        if [ $RETRIES -eq 0 ]; then
+            echo "Failed to create symlink $LINK to $DIR"
+        fi
+    fi
+}
+
+<% if_p("targets").do | target | %>
+  # Generated commands for <%= target.p("name") %>
+
+  # Skip if symlinks exist
+  if true \ <% target.if_p("directories").do | dir | %>
+    && [ ! -L "<%= dir.p("link") %>" ] \
+    <% end %> ; then
+     
+    <% target.if_p("services").do | service | %>
+    systemctl stop <%= service%>
+    <% end %>
+
+    <% target.if_p("directories").do | dir | %>
+        mkdir -p <%= dir.p("dest") %>
+        retry_create_symlink <%= dir.p("dest") %> <%= dir.p("link") %>
+    <% end %>
+
+
+    <% target.if_p("services").do | service | %>
+    systemctl start <%= service%>
+    <% end %>
+    else
+        echo "Symlinks already exist for <%=target.p("name")%>, skipping"
+    fi
+<% end %>
