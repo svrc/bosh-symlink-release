@@ -31,28 +31,28 @@ retry_create_symlinks()
     fi
 }
 
-<% if_p("targets") do | target | %>
+<% p("targets").each do | target | %>
   # Generated commands for <%= target.p("name") %>
 
   # Skip if symlinks exist
-  if true \ <% target.if_p("directories") do | dir | %>
+  if true \ <% target.p("directories") do | dir | %>
     && [ ! -L "<%= dir.p("link") %>" ] \
     <% end %> ; then
      
-    <% target.if_p("services") do | service | %>
+    <% target.p("services").each do | service | %>
     systemctl stop <%= service%>
     <% end %>
 
-    <% target.if_p("directories") do | dir | %>
+    <% target.p("directories").each do | dir | %>
         mkdir -p <%= dir.p("dest") %>
         retry_create_symlink <%= dir.p("dest") %> <%= dir.p("link") %>
     <% end %>
 
-
-    <% target.if_p("services") do | service | %>
+    <% target.p("services").each do | service | %>
     systemctl start <%= service%>
     <% end %>
     else
         echo "Symlinks already exist for <%=target.p("name") -%>, skipping"
     fi
-<% end %>
+<% end 
+  end %>
