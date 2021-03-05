@@ -35,23 +35,23 @@ retry_create_symlinks()
   # Generated commands for <%= target["name"] %>
 
   # Skip if symlinks exist
-  if ! [[ <% target["directories"].each do | dir | -%> -L "<%= dir["link"] -%>" ] && \
-    <% end -%> && true ]]; then
+  if ! [[ <% target["directories"].each do | dir | -%> -L "<%= dir["link"] -%>" && \
+    <% end -%>  true ]]; then
      
-    <% target["services"].each do | service | %>
-    systemctl stop <%= service%>
-    <% end %>
+    <% target["services"].each do | service | -%>
+    systemctl stop <%= service %>
+    <% end -%>
 
-    <% target["directories"].each do | dir | %>
+    <% target["directories"].each do | dir | -%>
         if ! [[ -L "<%= dir["link"] -%>" ]]; then
           mkdir -p <%= dir["dest"] %>
-          retry_create_symlinks <%= dir["dest"] -%> <%= dir["link"] -%>
+          retry_create_symlinks <%= dir["dest"] -%> <%= dir["link"] %>
         fi
     <% end %>
 
-    <% target["services"].each do | service | %>
-    systemctl start <%= service%>
-    <% end %>
+    <% target["services"].each do | service | -%>
+    systemctl start <%= service %>
+    <% end -%>
     else
         echo "Symlinks already exist for <%= target["name"] -%>, skipping"
     fi
