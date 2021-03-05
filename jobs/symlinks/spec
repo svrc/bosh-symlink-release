@@ -4,12 +4,10 @@ name: symlinks
 templates: 
   pre-start.erb: bin/pre-start
 
-packages: []
-
 properties:
   targets:
-    description: "Array of hashes as described in example.  Creates a /var/vcap/data/full/path/to/dest directory and symlinks the original path to this, moving any contents over.   If files are locked, this may pose a problem, so there's an option to denote a "service", where we use systemctl to stop / start this associated systemd service"
-
+    description: |
+      Array of hashes as described in example.  Creates a /var/vcap/data/full/path/to/dest directory and symlinks the original path to this, moving any contents over.   If files are locked, this may pose a problem, so there's an option to denote a "service", where we use systemctl to stop / start this associated systemd service
     example: |
       targets:
       - name: "Windows Azure Linux Agent and associated child agents & directories"
