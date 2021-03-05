@@ -5,7 +5,7 @@ addons:
     - os: ubuntu-bionic
   jobs:
   - name: symlinks
-    release: oms-agent-lite
+    release: bosh-symlink
     properties:
       targets:
       - name: "Windows Azure Linux Agent and associated child agents & directories"
@@ -22,3 +22,8 @@ addons:
           dest: /var/vcap/sys/log/azure
         - link: /var/opt
           dest: /var/vcap/data/var/opt
+
+  name: bosh-symlink
+releases:
+- name: bosh-symlink
+  version: 0+dev.1
