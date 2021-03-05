@@ -10,6 +10,8 @@ addons:
       targets:
       - name: "Windows Azure Linux Agent and associated child agents & directories"
         services:
+        - omid
+        - system-walinuxagent.extensions
         - walinuxagent
         directories:
         - link: /var/lib/waagent
