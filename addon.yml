@@ -1,13 +1,22 @@
----
 addons:
 - include:
     stemcell:
     - os: ubuntu-xenial
     - os: ubuntu-bionic
   jobs:
-  - name: omsagent-logwatch
+  - name: symlinks
     release: oms-agent-lite
-  name: oms-agent-lite
-releases:
-- name: oms-agent-lite
-  version: 0+dev.1
+    properties:
+      targets:
+      - name: "Windows Azure Linux Agent and associated child agents & directories"
+        services:
+        - walinuxagent
+        directories:
+        - link: /var/lib/waagent
+          dest: /var/vcap/data/var/lib/waagent
+        - link: /opt
+          dest: /var/vcap/data/opt
+        - link: /var/log/azure
+          dest: /var/vcap/sys/log/azure
+        - link: /var/opt
+          dest: /var/vcap/data/var/opt
