@@ -14,8 +14,6 @@ addons:
         - system-walinuxagent.extensions
         - walinuxagent
         directories:
-        - link: /var/lib/waagent
-          dest: /var/vcap/data/var/lib/waagent
         - link: /opt
           dest: /var/vcap/data/opt
         - link: /var/log/azure
